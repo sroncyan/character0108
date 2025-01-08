@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Model Viewer</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.158.0/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three/examples/js/loaders/GLTFLoader.js"></script>
+
+    <script>
+        // シーン、カメラ、レンダラーの初期化
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff); // 白色に設定
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // ライトの設定
+        const light = new THREE.DirectionalLight(0xffffff, 11);
+        light.position.set(1, 1, 1).normalize();
+        scene.add(light);
+
+        // GLTFモデルの読み込み
+        let mixer; // アニメーションミキサー
+        let isAnimationPlaying = false; // アニメーションの状態
+        const loader = new THREE.GLTFLoader();
+
+        loader.load(
+            'assets/angry.glb', // モデルファイルのパス
+            function (gltf) {
+                const model = gltf.scene;
+                scene.add(model);
+
+                // モデルの位置調整
+                model.position.set(0, -1, 0);
+                model.scale.set(18, 18, 1);
+
+                // アニメーションの設定
+                mixer = new THREE.AnimationMixer(model);
+                gltf.animations.forEach((clip) => {
+                    const action = mixer.clipAction(clip);
+                    action.paused = true; // 初期状態ではアニメーションを停止
+                });
+
+                // クリックイベントでアニメーションの再生/停止を切り替え
+                document.addEventListener('click', () => {
+                    if (mixer) {
+                        if (isAnimationPlaying) {
+                            // アニメーションを停止
+                            gltf.animations.forEach((clip) => {
+                                const action = mixer.clipAction(clip);
+                                action.paused = true;
+                                action.stop();
+                            });
+                            isAnimationPlaying = false;
+                        } else {
+                            // アニメーションを再生
+                            gltf.animations.forEach((clip) => {
+                                const action = mixer.clipAction(clip);
+                                action.reset();
+                                action.paused = false;
+                                action.play();
+                            });
+                            isAnimationPlaying = true;
+                        }
+                    }
+                });
+
+                animate();
+            },
+            undefined,
+            function (error) {
+                console.error('モデルの読み込みに失敗しました:', error);
+            }
+        );
+
+        // カメラの位置を設定
+        camera.position.z = 5;
+
+        // アニメーションループ
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            if (mixer) {
+                const delta = clock.getDelta();
+                mixer.update(delta);
+            }
+            renderer.render(scene, camera);
+        }
+
+        // リサイズイベントに対応
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
